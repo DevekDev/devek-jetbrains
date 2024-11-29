@@ -1,0 +1,15 @@
+<idea-plugin>
+    <id>com.devek.Devek</id>
+    <name>Devek</name>
+    <vendor email="support@devek.dev" url="https://www.devek.dev">Devek</vendor>
+    <description><![CDATA[
+    Code Change Tracking Redefined – Capture Every Keystroke, Analyze with Precision.
+    ]]></description>
+    <depends>com.intellij.modules.lang</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <editorFactoryListener
+                implementation="com.devek.dev.CodeChangeListener"/>
+    </extensions>
+    <!-- Support all IDE versions -->
+    <idea-version since-build="232.*" until-build="999.*" />
+</idea-plugin>
