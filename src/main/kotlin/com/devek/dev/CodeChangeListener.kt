@@ -10,12 +10,17 @@ import jakarta.websocket.OnMessage
 import jakarta.websocket.Session
 import org.glassfish.tyrus.client.ClientManager
 import java.net.URI
-import java.time.LocalDateTime
+import java.net.InetAddress
+import java.time.ZonedDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @ClientEndpoint
 class CodeChangeListener : EditorFactoryListener {
-    private var webSocketSession: Session? = null
+
+    private var session: Session? = null
     private val environment: String = determineEnvironment()
+    private val computerName: String = determineComputerName()
 
     init {
         connectToWebSocket()
@@ -25,11 +30,19 @@ class CodeChangeListener : EditorFactoryListener {
         return System.getProperty("idea.platform.prefix") ?: "Unknown"
     }
 
+    private fun determineComputerName(): String {
+        return try {
+            InetAddress.getLocalHost().hostName
+        } catch (e: Exception) {
+            "Unknown-Computer"
+        }
+    }
+
     private fun connectToWebSocket() {
         try {
-            val client = ClientManager.createClient() // Use Tyrus client manager
-            val uri = URI("ws://localhost:8080") // WebSocket server URL
-            webSocketSession = client.connectToServer(this, uri)
+            val client = ClientManager.createClient()
+            val uri = URI("wss://ws.devek.dev") // Replace with your WebSocket server URL
+            session = client.connectToServer(this, uri)
             println("Connected to WebSocket server.")
         } catch (e: Exception) {
             println("Failed to connect to WebSocket server.")
@@ -48,44 +61,45 @@ class CodeChangeListener : EditorFactoryListener {
 
         document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
-                val changes = event.newFragment.toString()
-                val timestamp = LocalDateTime.now().toString()
-                val startOffset = event.offset
-                val endOffset = event.offset + event.newLength
+                // Capture accurate timestamp for this change
+                val timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME)
 
-                val startLine = document.getLineNumber(startOffset)
-                val endLine = document.getLineNumber(endOffset)
+                // Extract details of the change
+                val documentUri = editor.document // Original document reference
+                val changeText = event.newFragment.toString()
+                val startLine = document.getLineNumber(event.offset) // Calculate line of change start
+                val startChar = event.offset - document.getLineStartOffset(startLine) // Char position in line
+                val endLine = document.getLineNumber(event.offset + event.newLength)
+                val endChar = (event.offset + event.newLength) - document.getLineStartOffset(endLine)
 
-                val startCharacter = startOffset - document.getLineStartOffset(startLine)
-                val endCharacter = endOffset - document.getLineStartOffset(endLine)
+                // Prepare change data
+                val changeData = """
+                    {
+                        "document_uri": "$documentUri",
+                        "timestamp": "$timestamp",
+                        "start_line": $startLine,
+                        "start_character": $startChar,
+                        "end_line": $endLine,
+                        "end_character": $endChar,
+                        "text": "$changeText",
+                        "environment": "$environment",
+                        "computer_name": "$computerName"
+                    }
+                """.trimIndent()
 
-                val changeData = mapOf(
-                    "document_uri" to editor.document.toString(),
-                    "timestamp" to timestamp,
-                    "start_line" to startLine,
-                    "start_character" to startCharacter,
-                    "end_line" to endLine,
-                    "end_character" to endCharacter,
-                    "text" to changes,
-                    "computer_name" to (System.getenv("COMPUTERNAME") ?: System.getenv("HOSTNAME") ?: "Unknown"),
-                    "environment" to environment
-                )
-
-                sendChangeToWebSocket(changeData)
+                // Send change data to WebSocket server
+                sendChangeToServer(changeData)
             }
         })
     }
 
-    private fun sendChangeToWebSocket(changeData: Map<String, Any>) {
+    private fun sendChangeToServer(data: String) {
         try {
-            val jsonMessage = changeData.entries.joinToString(",", "{", "}") {
-                "\"${it.key}\":\"${it.value}\""
-            }
-            webSocketSession?.basicRemote?.sendText(jsonMessage)
-            println("Sent to WebSocket server: $jsonMessage")
+            session?.basicRemote?.sendText(data)
+            println("Sent to WebSocket server: $data")
         } catch (e: Exception) {
             e.printStackTrace()
-            println("Failed to send message to WebSocket server.")
+            println("Failed to send data to WebSocket server.")
         }
     }
 
@@ -93,8 +107,8 @@ class CodeChangeListener : EditorFactoryListener {
         // Optional: Handle editor released events
     }
 
-//    @OnClose
-//    fun onClose(session: Session, reason: CloseReason) {
-//        println("WebSocket closed: ${reason.reasonPhrase}")
-//    }
+    @OnClose
+    fun onClose(session: Session, reason: jakarta.websocket.CloseReason) {
+        println("WebSocket closed: ${reason.reasonPhrase}")
+    }
 }
