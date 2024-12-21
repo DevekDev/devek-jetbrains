@@ -45,6 +45,11 @@ class DevekPluginService(private val project: Project) {
     private val reconnectInterval = 5000L
     private val settings = project.service<DevekSettings>()
 
+    val json = Json {
+        encodeDefaults = true  // This ensures default values are included in serialization
+        ignoreUnknownKeys = true
+    }
+
     init {
         if (loadSavedToken()) {
             connectToWebSocket()
@@ -54,6 +59,11 @@ class DevekPluginService(private val project: Project) {
     }
 
     fun showMenu() {
+        if (!isConnected()) {
+            showLoginPrompt()
+            return
+        }
+
         val options = arrayOf(
             "View App",
             "View Status",
@@ -103,7 +113,7 @@ class DevekPluginService(private val project: Project) {
         )
 
         try {
-            val changeData = Json.encodeToString(changeRequest)
+            val changeData = json.encodeToString(changeRequest)
             session?.basicRemote?.sendText(changeData)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -129,11 +139,21 @@ class DevekPluginService(private val project: Project) {
 
     private fun showWebview() {
         if (webviewDialog == null || !webviewDialog!!.isVisible) {
-            webviewDialog = WebviewDialog(project)
-            webviewDialog!!.show()
+            // Create content in the tool window instead of a dialog
+            val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")
+            if (toolWindow != null) {
+                val browser = JBCefBrowser("https://app.devek.dev")
+                val content = toolWindow.contentManager.factory.createContent(
+                    browser.component,
+                    "",
+                    false
+                )
+                toolWindow.contentManager.removeAllContents(true)
+                toolWindow.contentManager.addContent(content)
+                toolWindow.show()
+            }
         }
     }
-
     private fun showLoginPrompt() {
         ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")?.show()
     }
@@ -143,18 +163,37 @@ class DevekPluginService(private val project: Project) {
 
         updateStatus("connecting")
         val loginRequest = LoginRequest(
+            type = "login",
             data = LoginData(email = email, password = password)
         )
-        val loginData = Json.encodeToString(loginRequest)
+        val loginData = json.encodeToString(loginRequest)
         connectToWebSocket(loginData)
     }
 
     private fun handleLogout() {
         authToken = null
         saveToken(null)
-        session?.close()
+
+        // Close WebSocket connection if open
+        try {
+            session?.close()
+        } catch (e: Exception) {
+            println("Error closing WebSocket session: ${e.message}")
+        }
+        session = null
+
         updateStatus("disconnected")
-        showLoginPrompt()
+
+        // Update UI on EDT
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+            // Clear the tool window content
+            val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")
+            if (toolWindow != null) {
+                toolWindow.contentManager.removeAllContents(true)
+                // Show login prompt
+                showLoginPrompt()
+            }
+        }
     }
 
     private fun determineEnvironment(): String {
@@ -187,7 +226,19 @@ class DevekPluginService(private val project: Project) {
         try {
             val client = ClientManager.createClient()
             val uri = URI("wss://ws.devek.dev")
-            session = client.connectToServer(WebSocketHandler(this), uri)
+
+            // Create WebSocket handler with callbacks
+            val handler = WebSocketHandler(
+                project = project,
+                json = json,
+                onToken = { token -> saveToken(token) },
+                onConnectionStatus = { status -> updateStatus(status) },
+                onShowWebview = { showWebview() },
+                onResetConnection = { reconnectAttempts = 0 },
+                authToken = authToken
+            )
+
+            session = client.connectToServer(handler, uri)
             println("Connected to WebSocket server.")
 
             if (authToken != null) {
@@ -204,7 +255,7 @@ class DevekPluginService(private val project: Project) {
 
     private fun sendAuthToken() {
         val authRequest = AuthRequest(token = authToken ?: return)
-        val authMessage = Json.encodeToString(authRequest)
+        val authMessage = json.encodeToString(authRequest)
         session?.basicRemote?.sendText(authMessage)
     }
 
@@ -229,20 +280,31 @@ class DevekPluginService(private val project: Project) {
         @OnMessage
         fun onMessage(message: String) {
             try {
-                val response = Json.decodeFromString<WebSocketResponse>(message)
+                println("Received message: $message")  // Debug logging
+                val response = json.decodeFromString<WebSocketResponse>(message)  // Use our configured json
+                println("Parsed response: $response")  // Debug logging
+
                 when (response.type) {
                     "init" -> {
                         updateStatus("connecting")
                         reconnectAttempts = 0
                     }
-                    "auth" -> {
+                    "auth", "login" -> {  // Handle both auth and login responses
                         if (response.status == "success") {
                             val token = response.token
                             if (token != null) {
                                 saveToken(token)
                                 updateStatus("connected")
+                                // Close login window and show webview
+                                ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")?.hide()
+                                showWebview()
                             }
                         } else {
+                            Messages.showErrorDialog(
+                                project,
+                                response.message ?: "Login failed",
+                                "Login Error"
+                            )
                             handleLogout()
                         }
                     }

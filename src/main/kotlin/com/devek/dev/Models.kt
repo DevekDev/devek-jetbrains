@@ -1,12 +1,18 @@
 package com.devek.dev
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+
+@Serializable
+sealed class BaseRequest {
+    abstract val type: String
+}
 
 @Serializable
 data class LoginRequest(
-    val type: String = "login",
+    override val type: String = "login",
     val data: LoginData
-)
+) : BaseRequest()
 
 @Serializable
 data class LoginData(
@@ -16,15 +22,15 @@ data class LoginData(
 
 @Serializable
 data class AuthRequest(
-    val type: String = "auth",
+    override val type: String = "auth",
     val token: String
-)
+) : BaseRequest()
 
 @Serializable
 data class ChangeRequest(
-    val type: String = "change",
+    override val type: String = "change",
     val data: ChangeData
-)
+) : BaseRequest()
 
 @Serializable
 data class ChangeData(
