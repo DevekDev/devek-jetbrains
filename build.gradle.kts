@@ -1,10 +1,11 @@
 plugins {
     id("org.jetbrains.intellij") version "1.17.4"
     kotlin("jvm") version "1.9.10"
+    kotlin("plugin.serialization") version "1.9.10"
 }
 
 group = "com.devek.dev"
-version = "1.0.0"
+version = "0.0.1"
 
 repositories {
     mavenCentral()
@@ -36,6 +37,7 @@ dependencies {
     implementation("jakarta.websocket:jakarta.websocket-api:2.2.0")
     implementation("org.glassfish.tyrus:tyrus-client:2.2.0")
     implementation("org.glassfish.tyrus:tyrus-container-grizzly-client:2.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 }
 
 tasks.withType<Jar> {

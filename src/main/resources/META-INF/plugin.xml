@@ -9,6 +9,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <editorFactoryListener
                 implementation="com.devek.dev.CodeChangeListener"/>
+        <statusBarWidgetFactory implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>
+
     </extensions>
     <!-- Support all IDE versions -->
     <idea-version since-build="232.*" until-build="999.*" />
