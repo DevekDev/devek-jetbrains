@@ -7,6 +7,11 @@
     ]]></description>
     <depends>com.intellij.modules.lang</depends>
     <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Devek.dev"
+                    secondary="false"
+                    icon="AllIcons.General.User"
+                    anchor="right"
+                    factoryClass="com.devek.dev.DevekToolWindowFactory"/>
         <editorFactoryListener
                 implementation="com.devek.dev.CodeChangeListener"/>
         <statusBarWidgetFactory implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>

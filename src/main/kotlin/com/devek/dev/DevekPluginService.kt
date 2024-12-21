@@ -28,7 +28,10 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import javax.swing.JComponent
 import javax.swing.JPanel
-import com.intellij.openapi.components.service
+import com.intellij.icons.AllIcons
+import com.intellij.ui.dsl.builder.*
+import javax.swing.JLabel
+import com.intellij.openapi.wm.ToolWindowManager
 
 @Service
 class DevekPluginService(private val project: Project) {
@@ -132,13 +135,12 @@ class DevekPluginService(private val project: Project) {
     }
 
     private fun showLoginPrompt() {
-        val loginDialog = LoginDialog(project) { email, password ->
-            handleLoginAttempt(email, password)
-        }
-        loginDialog.show()
+        ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")?.show()
     }
 
-    private fun handleLoginAttempt(email: String, password: String) {
+    fun handleLoginAttempt(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) return
+
         updateStatus("connecting")
         val loginRequest = LoginRequest(
             data = LoginData(email = email, password = password)
@@ -256,31 +258,6 @@ class DevekPluginService(private val project: Project) {
             println("WebSocket closed: ${reason.reasonPhrase}")
             updateStatus("disconnected")
             handleReconnection()
-        }
-    }
-
-    private inner class LoginDialog(
-        project: Project,
-        private val onLogin: (String, String) -> Unit
-    ) : DialogWrapper(project) {
-        private val emailField = JBTextField()
-        private val passwordField = JBPasswordField()
-
-        init {
-            title = "Login to Devek.dev"
-            init()
-        }
-
-        override fun createCenterPanel(): JComponent {
-            return panel {
-                row("Email:") { cell(emailField).focused() }
-                row("Password:") { cell(passwordField) }
-            }
-        }
-
-        override fun doOKAction() {
-            onLogin(emailField.text, String(passwordField.password))
-            super.doOKAction()
         }
     }
 
