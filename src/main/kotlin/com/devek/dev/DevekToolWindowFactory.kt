@@ -6,7 +6,6 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBTextField
-import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import javax.swing.JPanel
 import java.awt.BorderLayout
@@ -20,6 +19,12 @@ import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
 import javax.swing.JButton
+import java.awt.event.KeyEvent
+import java.awt.event.KeyAdapter
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.ui.AnimatedIcon
+import javax.swing.SwingConstants
+import com.intellij.ui.components.panels.Wrapper
 
 class DevekToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -36,8 +41,22 @@ class DevekToolWindowFactory : ToolWindowFactory {
 private class LoginPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val emailField = JBTextField()
     private val passwordField = JBPasswordField()
+    private val loginButton = JButton("Login")
+    private val loadingIcon = JBLabel(AnimatedIcon.Default())
+    private val loadingLabel = JBLabel("Signing in...", SwingConstants.CENTER)
+    private val loadingPanel = JPanel(BorderLayout(5, 0)).apply {
+        add(loadingIcon, BorderLayout.WEST)
+        add(loadingLabel, BorderLayout.CENTER)
+        isVisible = false
+    }
 
     init {
+        setupUI()
+        setupLoginActions()
+        setupLoadingState()
+    }
+
+    private fun setupUI() {
         val mainPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = BorderFactory.createEmptyBorder(20, 20, 20, 20)
@@ -81,15 +100,14 @@ private class LoginPanel(private val project: Project) : JPanel(BorderLayout()) 
                 gbc.gridy = 3
                 add(passwordField, gbc)
 
-                // Login Button
+                // Loading icon and label
                 gbc.gridy = 4
                 gbc.insets = Insets(15, 5, 5, 5)
-                add(JButton("Login").apply {
-                    addActionListener {
-                        val pluginService = DevekPluginService.getInstance(project)
-                        pluginService.handleLoginAttempt(emailField.text, String(passwordField.password))
-                    }
-                }, gbc)
+                add(loadingPanel, gbc)
+
+                // Login Button
+                gbc.gridy = 5
+                add(loginButton, gbc)
             })
             add(Box.createVerticalStrut(15))
 
@@ -101,5 +119,57 @@ private class LoginPanel(private val project: Project) : JPanel(BorderLayout()) 
         }
 
         add(mainPanel, BorderLayout.NORTH)
+    }
+
+    private fun setupLoginActions() {
+        // Handle login button click
+        loginButton.addActionListener {
+            performLogin()
+        }
+
+        // Handle Enter key in email field
+        emailField.addKeyListener(object : KeyAdapter() {
+            override fun keyPressed(e: KeyEvent) {
+                if (e.keyCode == KeyEvent.VK_ENTER) {
+                    if (emailField.text.isNotEmpty()) {
+                        passwordField.requestFocus()
+                    }
+                }
+            }
+        })
+
+        // Handle Enter key in password field
+        passwordField.addKeyListener(object : KeyAdapter() {
+            override fun keyPressed(e: KeyEvent) {
+                if (e.keyCode == KeyEvent.VK_ENTER) {
+                    performLogin()
+                }
+            }
+        })
+    }
+
+    private fun setupLoadingState() {
+        // Initialize loading state observers
+        val pluginService = DevekPluginService.getInstance(project)
+        pluginService.addStatusListener { status ->
+            ApplicationManager.getApplication().invokeLater {
+                when (status) {
+                    "connecting" -> setLoading(true)
+                    else -> setLoading(false)
+                }
+            }
+        }
+    }
+
+    private fun setLoading(isLoading: Boolean) {
+        emailField.isEnabled = !isLoading
+        passwordField.isEnabled = !isLoading
+        loginButton.isEnabled = !isLoading
+        loadingPanel.isVisible = isLoading
+    }
+
+    private fun performLogin() {
+        val pluginService = DevekPluginService.getInstance(project)
+        pluginService.handleLoginAttempt(emailField.text, String(passwordField.password))
     }
 }

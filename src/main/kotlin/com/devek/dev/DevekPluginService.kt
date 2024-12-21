@@ -43,6 +43,7 @@ class DevekPluginService(private val project: Project) {
     private var authToken: String? = null
     private val settings = project.service<DevekSettings>()
     private var webviewDialog: WebviewDialog? = null
+    private val statusListeners = mutableListOf<(String) -> Unit>()
 
     val json = Json {
         encodeDefaults = true
@@ -68,6 +69,10 @@ class DevekPluginService(private val project: Project) {
             getAuthToken = { authToken },
             onSessionUpdated = { newSession -> session = newSession }
         )
+    }
+
+    fun addStatusListener(listener: (String) -> Unit) {
+        statusListeners.add(listener)
     }
 
     fun showMenu() {
@@ -228,8 +233,8 @@ class DevekPluginService(private val project: Project) {
 
     private fun updateStatus(status: String) {
         DevekService.getInstance(project).updateStatus(status)
+        statusListeners.forEach { it(status) }
     }
-
     private fun connectToWebSocket() {
         webSocketHandler?.connect()
     }
