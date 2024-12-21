@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.devek.Devek</id>
+    <id>com.devek.dev</id>
     <name>Devek</name>
     <vendor email="support@devek.dev" url="https://www.devek.dev">Devek</vendor>
     <description><![CDATA[
@@ -14,7 +14,9 @@
                     factoryClass="com.devek.dev.DevekToolWindowFactory"/>
         <editorFactoryListener
                 implementation="com.devek.dev.CodeChangeListener"/>
-        <statusBarWidgetFactory implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>
+        <statusBarWidgetFactory
+                id="DevekStatusWidget"
+                implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>
     </extensions>
     <!-- Support all IDE versions since 2023.2 -->
     <idea-version since-build="232.*"/>
