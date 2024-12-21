@@ -229,7 +229,6 @@ class DevekPluginService(private val project: Project) {
             val client = ClientManager.createClient()
             val uri = URI("wss://ws.devek.dev")
 
-            // Create WebSocket handler with callbacks
             val handler = WebSocketHandler(
                 project = project,
                 json = json,
@@ -274,54 +273,6 @@ class DevekPluginService(private val project: Project) {
                 "Failed to connect to Devek.dev server.",
                 "Connection Error"
             )
-        }
-    }
-
-    @ClientEndpoint
-    private inner class WebSocketHandler(private val service: DevekPluginService) {
-        @OnMessage
-        fun onMessage(message: String) {
-            try {
-                println("Received message: $message")  // Debug logging
-                val response = json.decodeFromString<WebSocketResponse>(message)  // Use our configured json
-                println("Parsed response: $response")  // Debug logging
-
-                when (response.type) {
-                    "init" -> {
-                        updateStatus("connecting")
-                        reconnectAttempts = 0
-                    }
-                    "auth", "login" -> {  // Handle both auth and login responses
-                        if (response.status == "success") {
-                            val token = response.token
-                            if (token != null) {
-                                saveToken(token)
-                                updateStatus("connected")
-                                // Close login window and show webview
-                                ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")?.hide()
-                                showWebview()
-                            }
-                        } else {
-                            Messages.showErrorDialog(
-                                project,
-                                response.message ?: "Login failed",
-                                "Login Error"
-                            )
-                            handleLogout()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                println("Error processing message: $message")
-                e.printStackTrace()
-            }
-        }
-
-        @OnClose
-        fun onClose(session: Session, reason: jakarta.websocket.CloseReason) {
-            println("WebSocket closed: ${reason.reasonPhrase}")
-            updateStatus("disconnected")
-            handleReconnection()
         }
     }
 
