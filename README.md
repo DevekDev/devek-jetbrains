@@ -61,8 +61,8 @@ Want to contribute or customize the plugin? Here's how to set it up:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/DevekDev/devek-intellij.git
-   cd devek-intellij
+   git clone https://github.com/DevekDev/devek-jetbrains
+   cd devek-jetbrains
    ```
 
 2. Import the project:
