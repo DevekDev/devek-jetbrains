@@ -12,14 +12,10 @@ import com.intellij.openapi.wm.StatusBarWidgetFactory
 @Service
 class DevekService(private val project: Project) {
     private var statusWidget: DevekStatusBarWidgetFactory.DevekStatusBarWidget? = null
-    protected var codeChangeListener: CodeChangeListener? = null
 
     fun registerWidget(widget: DevekStatusBarWidgetFactory.DevekStatusBarWidget) {
+        println("Registering widget")
         statusWidget = widget
-    }
-
-    fun registerCodeChangeListener(listener: CodeChangeListener) {
-        codeChangeListener = listener
     }
 
     fun updateStatus(status: String) {
@@ -27,7 +23,8 @@ class DevekService(private val project: Project) {
     }
 
     fun handleWidgetClick() {
-        codeChangeListener?.showMenu()
+        println("Widget clicked")
+        DevekPluginService.getInstance(project).showMenu()
     }
 
     companion object {
@@ -39,9 +36,14 @@ class DevekStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String = "DevekStatusWidget"
     override fun getDisplayName(): String = "Devek.dev"
     override fun isAvailable(project: Project): Boolean = true
-    override fun createWidget(project: Project): StatusBarWidget = DevekStatusBarWidget(project)
     override fun disposeWidget(widget: StatusBarWidget) = widget.dispose()
     override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
+
+    override fun createWidget(project: Project): StatusBarWidget {
+        val widget = DevekStatusBarWidget(project)
+        DevekService.getInstance(project).registerWidget(widget)
+        return widget
+    }
 
     class DevekStatusBarWidget(private val project: Project) : StatusBarWidget {
         private var currentStatus = "disconnected"
