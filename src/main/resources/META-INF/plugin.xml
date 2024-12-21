@@ -3,7 +3,7 @@
     <name>Devek</name>
     <vendor email="support@devek.dev" url="https://www.devek.dev">Devek</vendor>
     <description><![CDATA[
-    Code Change Tracking Redefined – Capture Every Keystroke, Analyze with Precision.
+    Optimize Your Development Productivity Effortlessly
     ]]></description>
     <depends>com.intellij.modules.lang</depends>
     <extensions defaultExtensionNs="com.intellij">
