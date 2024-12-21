@@ -22,7 +22,6 @@ tasks {
 
     patchPluginXml {
         sinceBuild = "232"
-        untilBuild = "999.*"
     }
 
     compileKotlin {

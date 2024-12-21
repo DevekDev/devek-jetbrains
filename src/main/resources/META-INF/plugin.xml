@@ -15,8 +15,7 @@
         <editorFactoryListener
                 implementation="com.devek.dev.CodeChangeListener"/>
         <statusBarWidgetFactory implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>
-
     </extensions>
-    <!-- Support all IDE versions -->
-    <idea-version since-build="232.*" until-build="999.*" />
+    <!-- Support all IDE versions since 2023.2 -->
+    <idea-version since-build="232.*"/>
 </idea-plugin>
