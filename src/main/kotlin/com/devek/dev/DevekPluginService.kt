@@ -37,26 +37,37 @@ import com.intellij.openapi.application.ApplicationManager
 @Service
 class DevekPluginService(private val project: Project) {
     private var session: Session? = null
+    private var webSocketHandler: WebSocketHandler? = null
     private val environment: String = determineEnvironment()
     private val computerName: String = determineComputerName()
     private var authToken: String? = null
-    private var webviewDialog: WebviewDialog? = null
-    private var reconnectAttempts = 0
-    private val maxReconnectAttempts = 5
-    private val reconnectInterval = 5000L
     private val settings = project.service<DevekSettings>()
+    private var webviewDialog: WebviewDialog? = null
 
     val json = Json {
-        encodeDefaults = true  // This ensures default values are included in serialization
+        encodeDefaults = true
         ignoreUnknownKeys = true
     }
 
     init {
+        initializeWebSocket()
         if (loadSavedToken()) {
-            connectToWebSocket()
+            webSocketHandler?.connect()
         } else {
             showLoginPrompt()
         }
+    }
+
+    private fun initializeWebSocket() {
+        webSocketHandler = WebSocketHandler(
+            project = project,
+            json = json,
+            onToken = { token -> saveToken(token) },
+            onConnectionStatus = { status -> updateStatus(status) },
+            onShowWebview = { showWebview() },
+            getAuthToken = { authToken },
+            onSessionUpdated = { newSession -> session = newSession }
+        )
     }
 
     fun showMenu() {
@@ -140,7 +151,6 @@ class DevekPluginService(private val project: Project) {
 
     private fun showWebview() {
         if (webviewDialog == null || !webviewDialog!!.isVisible) {
-            // Create content in the tool window instead of a dialog
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")
             if (toolWindow != null) {
                 val browser = JBCefBrowser("https://app.devek.dev")
@@ -155,6 +165,7 @@ class DevekPluginService(private val project: Project) {
             }
         }
     }
+
     private fun showLoginPrompt() {
         ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")?.show()
     }
@@ -168,33 +179,28 @@ class DevekPluginService(private val project: Project) {
             data = LoginData(email = email, password = password)
         )
         val loginData = json.encodeToString(loginRequest)
-        connectToWebSocket(loginData)
+        webSocketHandler?.connect(loginData)
     }
 
     private fun handleLogout() {
-        // Reset all connection state
         authToken = null
         saveToken(null)
-        reconnectAttempts = 0
 
-        // Close WebSocket connection if open
-        try {
-            session?.close()
-        } catch (e: Exception) {
-            println("Error closing WebSocket session: ${e.message}")
-        }
+        webSocketHandler?.dispose()
+        webSocketHandler = null
         session = null
 
         updateStatus("disconnected")
 
-        // Update UI on EDT
         ApplicationManager.getApplication().invokeLater {
-            // Clear the tool window content and show login
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")
-            if (toolWindow != null) {
-                toolWindow.contentManager.removeAllContents(true)
+            toolWindow?.let {
+                it.contentManager.removeAllContents(true)
                 showLoginPrompt()
             }
+
+            // Reinitialize websocket handler after logout
+            initializeWebSocket()
         }
     }
 
@@ -224,56 +230,8 @@ class DevekPluginService(private val project: Project) {
         DevekService.getInstance(project).updateStatus(status)
     }
 
-    private fun connectToWebSocket(initialMessage: String? = null) {
-        try {
-            val client = ClientManager.createClient()
-            val uri = URI("wss://ws.devek.dev")
-
-            val handler = WebSocketHandler(
-                project = project,
-                json = json,
-                onToken = { token -> saveToken(token) },
-                onConnectionStatus = { status -> updateStatus(status) },
-                onShowWebview = { showWebview() },
-                onResetConnection = { reconnectAttempts = 0 },
-                authToken = authToken
-            )
-
-            session = client.connectToServer(handler, uri)
-            println("Connected to WebSocket server.")
-
-            if (authToken != null) {
-                sendAuthToken()
-            } else if (initialMessage != null) {
-                session?.basicRemote?.sendText(initialMessage)
-            }
-        } catch (e: Exception) {
-            println("Failed to connect to WebSocket server.")
-            e.printStackTrace()
-            handleReconnection()
-        }
-    }
-
-    private fun sendAuthToken() {
-        val authRequest = AuthRequest(token = authToken ?: return)
-        val authMessage = json.encodeToString(authRequest)
-        session?.basicRemote?.sendText(authMessage)
-    }
-
-    private fun handleReconnection() {
-        if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++
-            updateStatus("connecting")
-            Thread.sleep(reconnectInterval)
-            connectToWebSocket()
-        } else {
-            updateStatus("error")
-            Messages.showErrorDialog(
-                project,
-                "Failed to connect to Devek.dev server.",
-                "Connection Error"
-            )
-        }
+    private fun connectToWebSocket() {
+        webSocketHandler?.connect()
     }
 
     private inner class WebviewDialog(project: Project) : DialogWrapper(project) {
@@ -292,8 +250,7 @@ class DevekPluginService(private val project: Project) {
         }
 
         override fun dispose() {
-            browser.dispose()
-            super.dispose()
+            webSocketHandler?.dispose()
         }
     }
 

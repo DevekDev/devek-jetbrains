@@ -4,13 +4,12 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindowManager
-import jakarta.websocket.ClientEndpoint
-import jakarta.websocket.OnClose
-import jakarta.websocket.OnError
-import jakarta.websocket.OnMessage
-import jakarta.websocket.OnOpen
-import jakarta.websocket.Session
+import jakarta.websocket.*
+import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
+import org.glassfish.tyrus.client.ClientManager
+import java.net.URI
+import kotlin.random.Random
 
 @ClientEndpoint
 class WebSocketHandler(
@@ -19,23 +18,77 @@ class WebSocketHandler(
     private val onToken: (String) -> Unit,
     private val onConnectionStatus: (String) -> Unit,
     private val onShowWebview: () -> Unit,
-    private val onResetConnection: () -> Unit,
-    private val authToken: String?
+    private val getAuthToken: () -> String?,
+    private val onSessionUpdated: (Session?) -> Unit
 ) {
+    private var reconnectJob: Job? = null
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var currentSession: Session? = null
+    private val client = ClientManager.createClient()
+    private val serverUri = URI("wss://ws.devek.dev")
+
+
+    fun connect(initialMessage: String? = null) {
+        scope.launch {
+            try {
+                // Use withContext(Dispatchers.IO) for the actual connection
+                withContext(Dispatchers.IO) {
+                    currentSession = client.connectToServer(this@WebSocketHandler, serverUri)
+                    onSessionUpdated(currentSession)
+                    println("Connected to WebSocket server.")
+
+                    val authToken = getAuthToken()
+                    if (authToken != null) {
+                        sendAuthToken(authToken)
+                    } else if (initialMessage != null) {
+                        currentSession?.basicRemote?.sendText(initialMessage)
+                    }
+                }
+            } catch (e: Exception) {
+                println("Failed to connect to WebSocket server: ${e.message}")
+                e.printStackTrace()
+                scheduleReconnect()
+            }
+        }
+    }
+
+    private fun sendAuthToken(token: String) {
+        val authRequest = AuthRequest(token = token)
+        val authMessage = json.encodeToString(AuthRequest.serializer(), authRequest)
+        currentSession?.basicRemote?.sendText(authMessage)
+    }
+
+    @OnOpen
+    fun onOpen(session: Session) {
+        println("WebSocket connection established")
+        scope.launch(Dispatchers.IO) {
+            onConnectionStatus("connected")
+            reconnectJob?.cancel()
+        }
+    }
+
+    @OnClose
+    fun onClose(session: Session, reason: CloseReason) {
+        println("WebSocket connection closed: ${reason.reasonPhrase}")
+        scope.launch(Dispatchers.IO) {
+            currentSession = null
+            onSessionUpdated(null)
+            onConnectionStatus("disconnected")
+            scheduleReconnect()
+        }
+    }
+
     @OnMessage
     fun onMessage(message: String) {
         try {
             val response = json.decodeFromString<WebSocketResponse>(message)
-            println("Successfully decoded response: $response")
-
             when (response.type) {
                 "init" -> {
                     println("Handling init response")
                     onConnectionStatus("connected")
-                    onResetConnection()
 
                     // If we're already authenticated, show the webview
-                    if (authToken != null) {
+                    if (getAuthToken() != null) {
                         ApplicationManager.getApplication().invokeLater {
                             onShowWebview()
                         }
@@ -75,34 +128,57 @@ class WebSocketHandler(
                         }
                     }
                 }
+                "change" -> println("Change response - ${response.status}")
                 else -> println("Unknown response type: ${response.type}")
             }
         } catch (e: Exception) {
-            println("Error processing message: $message")
-            e.printStackTrace()
+            println("Error processing WebSocket message: ${e.message}")
         }
     }
 
-    @OnOpen
-    fun onOpen(session: Session) {
-        println("WebSocket session opened")
-        println("Session ID: ${session.id}")
-        println("Session properties: ${session.requestParameterMap}")
+    private fun scheduleReconnect() {
+        reconnectJob?.cancel()
+        reconnectJob = scope.launch(Dispatchers.IO) {
+            var attempts = 0
+            val maxAttempts = 5
+            val baseDelay = 5000L // 5 seconds base delay
+
+            while (attempts < maxAttempts) {
+                delay(calculateBackoffDelay(attempts, baseDelay))
+                attempts++
+
+                try {
+                    onConnectionStatus("connecting")
+                    connect()
+                    break
+                } catch (e: Exception) {
+                    println("Reconnection attempt $attempts failed: ${e.message}")
+                    if (attempts >= maxAttempts) {
+                        onConnectionStatus("error")
+                        withContext(Dispatchers.Main) {
+                            ApplicationManager.getApplication().invokeLater {
+                                Messages.showErrorDialog(
+                                    project,
+                                    "Failed to reconnect to Devek.dev server after $maxAttempts attempts.",
+                                    "Connection Error"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    @OnError
-    fun onError(session: Session?, error: Throwable?) {
-        println("WebSocket error occurred")
-        println("Session: ${session?.id}")
-        error?.printStackTrace()
+    private fun calculateBackoffDelay(attempt: Int, baseDelay: Long): Long {
+        val exponentialDelay = baseDelay * (1L shl attempt.coerceAtMost(6))
+        val jitter = Random.nextLong(exponentialDelay / 4)
+        return (exponentialDelay + jitter).coerceAtMost(300000)
     }
 
-    @OnClose
-    fun onClose(session: Session, reason: jakarta.websocket.CloseReason) {
-        println("WebSocket closed")
-        println("Session ID: ${session.id}")
-        println("Close reason: ${reason.reasonPhrase}")
-        println("Close code: ${reason.closeCode}")
-        onConnectionStatus("disconnected")
+    fun dispose() {
+        currentSession?.close()
+        reconnectJob?.cancel()
+        scope.cancel()
     }
 }

@@ -38,6 +38,8 @@ dependencies {
     implementation("org.glassfish.tyrus:tyrus-client:2.2.0")
     implementation("org.glassfish.tyrus:tyrus-container-grizzly-client:2.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.0")
 }
 
 tasks.withType<Jar> {
