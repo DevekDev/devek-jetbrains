@@ -32,6 +32,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.ui.dsl.builder.*
 import javax.swing.JLabel
 import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.openapi.application.ApplicationManager
 
 @Service
 class DevekPluginService(private val project: Project) {
@@ -171,8 +172,10 @@ class DevekPluginService(private val project: Project) {
     }
 
     private fun handleLogout() {
+        // Reset all connection state
         authToken = null
         saveToken(null)
+        reconnectAttempts = 0
 
         // Close WebSocket connection if open
         try {
@@ -185,12 +188,11 @@ class DevekPluginService(private val project: Project) {
         updateStatus("disconnected")
 
         // Update UI on EDT
-        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
-            // Clear the tool window content
+        ApplicationManager.getApplication().invokeLater {
+            // Clear the tool window content and show login
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Devek.dev")
             if (toolWindow != null) {
                 toolWindow.contentManager.removeAllContents(true)
-                // Show login prompt
                 showLoginPrompt()
             }
         }
