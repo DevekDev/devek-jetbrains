@@ -12,10 +12,14 @@ import com.intellij.openapi.wm.StatusBarWidgetFactory
 @Service
 class DevekService(private val project: Project) {
     private var statusWidget: DevekStatusBarWidgetFactory.DevekStatusBarWidget? = null
+    private var pluginService: DevekPluginService? = null
 
     fun registerWidget(widget: DevekStatusBarWidgetFactory.DevekStatusBarWidget) {
         println("Registering widget")
         statusWidget = widget
+        pluginService = DevekPluginService.getInstance(project).also {
+            it.addStatusListener { status -> updateStatus(status) }
+        }
     }
 
     fun updateStatus(status: String) {
@@ -24,7 +28,7 @@ class DevekService(private val project: Project) {
 
     fun handleWidgetClick() {
         println("Widget clicked")
-        DevekPluginService.getInstance(project).showMenu()
+        pluginService?.showMenu()
     }
 
     companion object {

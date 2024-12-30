@@ -18,6 +18,5 @@
                 id="DevekStatusWidget"
                 implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>
     </extensions>
-    <!-- Support all IDE versions since 2023.2 -->
-    <idea-version since-build="232.*"/>
+    <idea-version since-build="243.0" until-build="243.22562.222"/>
 </idea-plugin>

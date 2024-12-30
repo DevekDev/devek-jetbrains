@@ -31,17 +31,21 @@ class WebSocketHandler(
     fun connect(initialMessage: String? = null) {
         scope.launch {
             try {
-                // Use withContext(Dispatchers.IO) for the actual connection
                 withContext(Dispatchers.IO) {
-                    currentSession = client.connectToServer(this@WebSocketHandler, serverUri)
-                    onSessionUpdated(currentSession)
-                    println("Connected to WebSocket server.")
+                    // Use structured concurrency with coroutineScope
+                    coroutineScope {
+                        currentSession = client.connectToServer(this@WebSocketHandler, serverUri)
+                        onSessionUpdated(currentSession)
+                        println("Connected to WebSocket server.")
 
-                    val authToken = getAuthToken()
-                    if (authToken != null) {
-                        sendAuthToken(authToken)
-                    } else if (initialMessage != null) {
-                        currentSession?.basicRemote?.sendText(initialMessage)
+                        val authToken = getAuthToken()
+                        when {
+                            authToken != null -> sendAuthToken(authToken)
+                            initialMessage != null -> currentSession?.basicRemote?.sendText(initialMessage)
+                            else -> {
+
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -141,7 +145,7 @@ class WebSocketHandler(
         reconnectJob = scope.launch(Dispatchers.IO) {
             var attempts = 0
             val maxAttempts = 5
-            val baseDelay = 5000L // 5 seconds base delay
+            val baseDelay = 5000L
 
             while (attempts < maxAttempts) {
                 delay(calculateBackoffDelay(attempts, baseDelay))
@@ -149,7 +153,9 @@ class WebSocketHandler(
 
                 try {
                     onConnectionStatus("connecting")
-                    connect()
+                    supervisorScope {
+                        connect()
+                    }
                     break
                 } catch (e: Exception) {
                     println("Reconnection attempt $attempts failed: ${e.message}")

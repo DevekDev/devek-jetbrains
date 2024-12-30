@@ -75,7 +75,7 @@ private class LoginPanel(private val project: Project) : JPanel(BorderLayout()) 
             add(Box.createVerticalStrut(5))
 
             // Subtitle
-            add(JBLabel("Track and analyze your code changes").apply {
+            add(JBLabel("Optimize Your Development Productivity").apply {
                 alignmentX = CENTER_ALIGNMENT
             })
             add(Box.createVerticalStrut(20))

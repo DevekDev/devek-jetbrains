@@ -232,7 +232,6 @@ class DevekPluginService(private val project: Project) {
     }
 
     private fun updateStatus(status: String) {
-        DevekService.getInstance(project).updateStatus(status)
         statusListeners.forEach { it(status) }
     }
     private fun connectToWebSocket() {
