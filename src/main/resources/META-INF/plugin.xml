@@ -2,10 +2,37 @@
     <id>com.devek.dev</id>
     <name>Devek</name>
     <vendor email="support@devek.dev" url="https://www.devek.dev">Devek</vendor>
+
     <description><![CDATA[
-    Optimize Your Development Productivity Effortlessly
+    <p>A powerful SaaS platform that boosts developer productivity and streamlines development workflows through actionable insights.</p>
+
+    <h2>Key Features</h2>
+    <ul>
+        <li>Development Insights: Gain valuable metrics and analytics about your coding patterns and workflow</li>
+        <li>Productivity Optimization: Identify areas for improvement and efficiency gains in your development process</li>
+        <li>Workflow Streamlining: Optimize your development workflow with data-driven recommendations</li>
+        <li>Real-time Analytics: Get instant feedback on your development activities</li>
+    </ul>
+
+    <h2>Getting Started</h2>
+    <ol>
+        <li>Install the Devek plugin from JetBrains Marketplace</li>
+        <li>Access your development insights through the Devek tool window (located on the right side)</li>
+        <li>View your productivity metrics and workflow recommendations in real-time</li>
+    </ol>
+
+    <h2>Requirements</h2>
+    <ul>
+        <li>IntelliJ-based IDEs version 2024.3 or later</li>
+        <li>Java 21 or later</li>
+        <li>Devek account (sign up at <a href="https://www.devek.dev">https://www.devek.dev</a>)</li>
+    </ul>
+
+    <p>For more information, documentation, and to create your Devek account, visit <a href="https://www.devek.dev">https://www.devek.dev</a></p>
     ]]></description>
+
     <depends>com.intellij.modules.lang</depends>
+
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Devek.dev"
                     secondary="false"
@@ -18,5 +45,6 @@
                 id="DevekStatusWidget"
                 implementation="com.devek.dev.DevekStatusBarWidgetFactory"/>
     </extensions>
-    <idea-version since-build="243.0" until-build="243.22562.222"/>
+
+    <idea-version since-build="243.0"/>
 </idea-plugin>

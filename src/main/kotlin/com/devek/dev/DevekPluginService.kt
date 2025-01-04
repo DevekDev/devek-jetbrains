@@ -8,31 +8,21 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.Messages
-import com.intellij.ui.components.JBPasswordField
-import com.intellij.ui.components.JBTextField
-import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.ui.JBUI
-import jakarta.websocket.ClientEndpoint
-import jakarta.websocket.OnClose
-import jakarta.websocket.OnMessage
 import jakarta.websocket.Session
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import org.glassfish.tyrus.client.ClientManager
 import java.awt.BorderLayout
 import java.net.InetAddress
-import java.net.URI
 import java.time.ZonedDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import javax.swing.JComponent
 import javax.swing.JPanel
-import com.intellij.icons.AllIcons
-import com.intellij.ui.dsl.builder.*
-import javax.swing.JLabel
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.application.ApplicationManager
+import com.devek.dev.json
+
 
 @Service
 class DevekPluginService(private val project: Project) {
@@ -44,11 +34,6 @@ class DevekPluginService(private val project: Project) {
     private val settings = project.service<DevekSettings>()
     private var webviewDialog: WebviewDialog? = null
     private val statusListeners = mutableListOf<(String) -> Unit>()
-
-    val json = Json {
-        encodeDefaults = true
-        ignoreUnknownKeys = true
-    }
 
     init {
         initializeWebSocket()
