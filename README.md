@@ -122,3 +122,11 @@ Start using **Devek.dev** today to analyze, refine, and supercharge your develop
 Feedback or ideas? We'd love to hear from you—help us make Devek.dev the ultimate productivity companion for IntelliJ.
 
 **Level up with Devek.dev—work smarter, code better, and achieve more!**
+
+## **Join Our Community!**
+
+Want to connect with other developers, share insights, and get support?  
+Join our **Devek.dev** Discord community!
+
+🔗 **[Join the Discord](https://discord.gg/xzbhyVfb)**
+
